@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LogiTrack SAC — Sistema de Gestão de Ocorrências</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<!-- ── BOOT SCREEN (carregamento inicial / status de conexão) ── -->
+<div id="boot-screen" style="position:fixed;inset:0;z-index:9999;background:var(--bg, #f1f5f9);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px">
+  <div style="width:36px;height:36px;border:3px solid #cbd5e1;border-top-color:#2563eb;border-radius:50%;animation:lt-spin 0.8s linear infinite"></div>
+  <div class="boot-msg" style="font-size:13px;color:#64748b">Conectando ao banco de dados...</div>
+</div>
+<style>@keyframes lt-spin{to{transform:rotate(360deg)}}</style>
+
+<!-- ── LOGIN PAGE ────────────────────────────────────────── -->
+<div id="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon">🚚</div>
+      <div class="logo-text">Logi<span>Track</span></div>
+    </div>
+    <h2 class="login-title">Bem-vindo de volta</h2>
+    <p class="login-subtitle">Faça login para acessar o sistema de gestão de ocorrências</p>
+    <form onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label>E-mail</label>
+        <div class="input-group">
+          <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+          <input class="input" type="email" id="login-email" placeholder="seu@email.com" required autocomplete="username">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Senha</label>
+        <div class="input-group">
+          <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          <input class="input" type="password" id="login-senha" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+      </div>
+      <p id="login-error" style="color:var(--danger);font-size:12px;margin-bottom:12px"></p>
+      <button type="submit" class="btn btn-primary btn-lg w-full">Entrar no sistema</button>
+    </form>
+    <div style="text-align:center;margin-top:12px">
+      <button type="button" onclick="loginResetDB()" style="background:none;border:none;color:var(--text-muted);font-size:11px;cursor:pointer;text-decoration:underline">
+        Problemas com login? Clique aqui para reinicializar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MAIN APP ───────────────────────────────────────────── -->
+<div id="app" style="display:none">
+
+  <!-- Sidebar Overlay (mobile) -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="App.closeSidebarMobile()"></div>
+
+  <!-- ── SIDEBAR ────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🚚</div>
+      <div class="logo-text">LogiTrack SAC</div>
+    </div>
+    <nav class="sidebar-nav" id="sidebar-nav"></nav>
+    <div class="sidebar-footer">
+      <div class="user-card" onclick="App.logout()">
+        <div class="user-avatar" id="sidebar-user-initials">CM</div>
+        <div class="user-info">
+          <div class="user-name" id="sidebar-user-name">Carlos Mendes</div>
+          <div class="user-role" id="sidebar-user-role">ADMINISTRADOR</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN WRAPPER ───────────────────────────────────── -->
+  <div class="main-wrapper">
+
+    <!-- Header -->
+    <header class="header">
+      <button class="header-toggle" onclick="window.innerWidth<=768?App.openSidebarMobile():App.toggleSidebar()" title="Toggle menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="header-title" id="header-title">Dashboard</span>
+      <div class="header-spacer"></div>
+      <div class="search-bar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Busca rápida..." id="global-search">
+      </div>
+      <div class="header-actions">
+        <button class="header-btn" id="theme-toggle" title="Alternar tema" onclick="Theme.toggle();App.navigate(App.currentPage)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <button class="header-btn" title="Notificações" onclick="Notificacoes.togglePanel()" style="position:relative">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-dot" id="notif-dot" style="display:none"></span>
+          <span id="notif-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:var(--danger);color:#fff;border-radius:99px;min-width:18px;height:18px;font-size:10px;font-weight:700;align-items:center;justify-content:center;padding:0 4px;line-height:1">0</span>
+        </button>
+        <div class="user-avatar" id="header-user-avatar" style="cursor:pointer;width:32px;height:32px;font-size:12px;border-radius:50%;background:var(--brand-500);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700" onclick="App.logout()" title="Sair">CM</div>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <main class="content">
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: DASHBOARD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="page-dashboard" class="page">
+  <!-- Filtros globais -->
+  <div class="card" style="margin-bottom:16px;padding:0" id="dash-sac-filters"></div>
+
+  <!-- KPIs Linha 1: Totais por módulo -->
+  <div class="kpi-grid" style="margin-bottom:16px">
+    <div class="kpi-card"><div class="kpi-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="kpi-content"><div class="kpi-label">Total Geral SAC</div><div class="kpi-value" id="dsac-total">—</div><div class="kpi-trend neutral">todos os módulos</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="kpi-content"><div class="kpi-label">Devoluções</div><div class="kpi-value" id="dsac-devolucoes">—</div><div class="kpi-trend neutral">ocorrências</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div><div class="kpi-content"><div class="kpi-label">Reentregas</div><div class="kpi-value" id="dsac-reentregas">—</div><div class="kpi-trend neutral">reentregas</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div><div class="kpi-content"><div class="kpi-label">Sobras / Faltas</div><div class="kpi-value" id="dsac-sobras">—</div><div class="kpi-trend neutral">erros de conf.</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="kpi-content"><div class="kpi-label">Em Aberto</div><div class="kpi-value" id="dsac-abertos">—</div><div class="kpi-trend down">requerem atenção</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="20 6 9 17 4 12"/></svg></div><div class="kpi-content"><div class="kpi-label">Resolvidos</div><div class="kpi-value" id="dsac-resolvidos">—</div><div class="kpi-trend up">concluídos</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div class="kpi-content"><div class="kpi-label">Taxa de Resolução</div><div class="kpi-value" id="dsac-taxa">—</div><div class="kpi-trend neutral">sobre o total</div></div></div>
+  </div>
+
+  <!-- Gráficos: Evolução diária + Distribuição por módulo -->
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Evolução Diária (30 dias)</div></div>
+      <div class="card-body"><div class="chart-container" style="height:200px"><canvas id="dsac-chart-evol"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Distribuição por Módulo</div></div>
+      <div class="card-body"><div class="chart-container" style="height:200px"><canvas id="dsac-chart-modulo"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- Gráfico distribuição por status + Alertas -->
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Distribuição por Status</div></div>
+      <div class="card-body"><div class="chart-container" style="height:200px"><canvas id="dsac-chart-status"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Alertas</div>
+        <button class="btn btn-ghost btn-sm" onclick="App.navigate('alertas')">Ver todos →</button>
+      </div>
+      <div class="card-body" id="dash-alertas" style="padding:0 20px 12px;max-height:220px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- Rankings -->
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-header"><div class="card-title">🏆 Ranking Clientes</div></div>
+      <div class="card-body" id="dsac-rank-clientes" style="max-height:200px;overflow-y:auto"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">🏆 Ranking Motoristas</div></div>
+      <div class="card-body" id="dsac-rank-motoristas" style="max-height:200px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- ── SEÇÃO FINANCEIRA ───────────────────────────────── -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+    <div style="width:4px;height:20px;background:var(--success);border-radius:2px"></div>
+    <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">💰 Financeiro — Atendimentos</span>
+  </div>
+
+  <!-- KPIs Financeiros -->
+  <div class="kpi-grid" style="margin-bottom:16px">
+    <div class="kpi-card"><div class="kpi-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="kpi-content"><div class="kpi-label">Total Indenizações</div><div class="kpi-value" id="dsac-fin-indenizacao" style="font-size:16px">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><div class="kpi-content"><div class="kpi-label">Total Reembolsos</div><div class="kpi-value" id="dsac-fin-reembolso" style="font-size:16px">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="20 6 9 17 4 12"/></svg></div><div class="kpi-content"><div class="kpi-label">Total Pago</div><div class="kpi-value" id="dsac-fin-pago" style="font-size:16px">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="kpi-content"><div class="kpi-label">Valor Pendente</div><div class="kpi-value" id="dsac-fin-pendente" style="font-size:16px">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="kpi-content"><div class="kpi-label">Pagamentos Pendentes</div><div class="kpi-value" id="dsac-fin-qtd-pendente">—</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div class="kpi-content"><div class="kpi-label">Pagamentos Efetuados</div><div class="kpi-value" id="dsac-fin-qtd-pago">—</div></div></div>
+  </div>
+
+  <!-- Gráficos Financeiros -->
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Financeiro por Mês (6 meses)</div></div>
+      <div class="card-body"><div class="chart-container" style="height:200px"><canvas id="dsac-chart-fin-mes"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Financeiro por Status</div></div>
+      <div class="card-body"><div class="chart-container" style="height:200px"><canvas id="dsac-chart-fin-status"></canvas></div></div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header"><div class="card-title">Financeiro por Forma de Pagamento</div></div>
+    <div class="card-body"><div class="chart-container" style="height:180px"><canvas id="dsac-chart-fin-forma"></canvas></div></div>
+  </div>
+
+  <!-- Registros Recentes consolidados -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Registros Recentes — Todos os Módulos</div>
+    </div>
+    <div class="table-wrapper">
+      <table class="table">
+        <thead><tr><th>Módulo</th><th>Código</th><th>Descrição</th><th>Status</th><th>Cliente</th><th>Data</th></tr></thead>
+        <tbody id="dash-recentes"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div id="page-ocorrencias" class="page">
+  <div class="page-header">
+    <div><h1 class="page-title">Devoluções</h1><p class="page-subtitle">Gerencie todas as devoluções logísticas</p></div>
+    <div class="page-actions">
+      <span id="oc-count" style="font-size:12px;color:var(--text-secondary);align-self:center"></span>
+      <button class="btn btn-secondary btn-sm" onclick="RelatoriosPage.exportCSV(OcorrenciasPage.getFiltered())"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> CSV</button>
+      <button class="btn btn-secondary btn-sm" onclick="RelatoriosPage.exportExcel(OcorrenciasPage.getFiltered())"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Excel</button>
+      <button class="btn btn-primary" onclick="OcorrenciasPage.nova()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nova Devolução</button>
+    </div>
+  </div>
+  <div class="filters" id="oc-filters"></div>
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="table"><thead><tr><th>Código</th><th>Tipo</th><th>Status</th><th>Prioridade</th><th>Cliente</th><th>Motorista</th><th>Data</th><th>Ações</th></tr></thead>
+      <tbody id="oc-tbody"></tbody></table>
+    </div>
+  </div>
+  <div id="oc-pagination" style="margin-top:12px"></div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: NOVA OCORRÊNCIA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: REENTREGAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="page-reentregas" class="page">
+  <div class="page-header">
+    <div><h1 class="page-title">Reentregas</h1><p class="page-subtitle">Gerenciamento de reentregas e tratativas</p></div>
+    <div class="page-actions">
+      <span id="reet-count" style="font-size:12px;color:var(--text-secondary);align-self:center"></span>
+      <button class="btn btn-primary" onclick="ReentregasPage.nova()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nova Reentrega
+      </button>
+    </div>
+  </div>
+  <div class="filters" id="reet-filters"></div>
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="table">
+        <thead><tr><th>Código</th><th>Motivo</th><th>Status</th><th>Cliente</th><th>Mot. Principal</th><th>Mot. Secundário</th><th>Dev. Evitada</th><th>Ações</th></tr></thead>
+        <tbody id="reet-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="reet-pagination" style="margin-top:12px"></div>
+</div>
+
+<div id="page-nova" class="page">
+  <div class="page-header">
+    <div><h1 class="page-title">Nova Devolução</h1><p class="page-subtitle">Registre uma nova devolução logística</p></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:16px">
+    <div class="card"><div class="card-header"><div class="card-title">Dados da Ocorrência</div></div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group"><label>Tipo de Ocorrência *</label>
+          <div id="nova-tipo-container"></div>
+          <div class="form-hint">Digite o código (ex: 019) ou parte da descrição para filtrar</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Nota Fiscal</label><input class="input" id="nova-nf" placeholder="NF-12345"></div>
+        <div class="form-group"><label>Local da Ocorrência</label><input class="input" id="nova-local" placeholder="Cidade / Rodovia"></div>
+      </div>
+      <div class="form-group"><label>Valor da Mercadoria (R$)</label><input class="input" id="nova-valor" type="number" step="0.01" placeholder="0,00" style="max-width:220px"></div>
+      <div class="form-group"><label>Descrição *</label><textarea class="input" id="nova-desc" rows="4" placeholder="Descreva detalhadamente o que ocorreu..." style="height:auto;padding:10px 12px"></textarea></div>
+      <div class="form-group"><label>Observações</label><textarea class="input" id="nova-obs" rows="2" placeholder="Informações adicionais..." style="height:auto;padding:10px 12px"></textarea></div>
+      <div class="form-group"><label>Tratativa com <span style="font-size:11px;color:var(--text-muted);font-weight:400">(opcional)</span></label><div id="nova-tratativa-container"></div></div>
+
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card"><div class="card-header"><div class="card-title">Envolvidos</div></div>
+      <div class="card-body">
+        <div class="form-group"><label>Cliente</label>
+          <input class="input" id="nova-cliente" placeholder="Digite o nome do cliente">
+        </div>
+        <div class="form-group"><label>Código do Motorista</label>
+          <input class="input" id="nova-motorista-cod" placeholder="Ex: 1025" autocomplete="off" oninput="NovaOcorrenciaPage._previewMotorista()">
+          <div id="nova-motorista-preview" style="font-size:12px;margin-top:4px;font-weight:500"></div>
+        </div>
+        <div class="form-group"><label>Responsável</label><select class="select" id="nova-responsavel"></select></div>
+      </div></div>
+      <button class="btn btn-primary btn-lg w-full" onclick="NovaOcorrenciaPage.salvar()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Registrar Ocorrência
+      </button>
+      <button class="btn btn-secondary w-full" onclick="App.navigate('ocorrencias')">Cancelar</button>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: DASHBOARD EXECUTIVO (mantido por compatibilidade — redireciona)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- PAGE: DASHBOARD-EXEC (alias Devoluções) -->
+<div id="page-dashboard-exec" class="page">
+  <div class="page-header"><div><h1 class="page-title">Dashboard — Devoluções</h1><p class="page-subtitle">Indicadores exclusivos de devoluções</p></div></div>
+  <div id="dd-filters-area"></div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+    <div class="kpi-card"><div class="kpi-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div class="kpi-content"><div class="kpi-label">Total de Devoluções</div><div class="kpi-value" id="dd-total">0</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="kpi-content"><div class="kpi-label">Em Tratativa</div><div class="kpi-value" id="dd-tratativa">0</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="20 6 9 17 4 12"/></svg></div><div class="kpi-content"><div class="kpi-label">Resolvidas</div><div class="kpi-value" id="dd-resolvidas">0</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div><div class="kpi-content"><div class="kpi-label">Resolvidas c/ Reentrega</div><div class="kpi-value" id="dd-com-reet">0</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div class="kpi-content"><div class="kpi-label">Devoluções Evitadas</div><div class="kpi-value" id="dd-evitadas">0</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="kpi-content"><div class="kpi-label">Pendentes</div><div class="kpi-value" id="dd-pendentes">0</div></div></div>
+  </div>
+  <!-- KPIs — Entrega em Rota -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;margin-top:4px">
+    <div style="width:4px;height:20px;background:var(--success);border-radius:2px"></div>
+    <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">Entrega em Rota</span>
+  </div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+    <div class="kpi-card"><div class="kpi-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div><div class="kpi-content"><div class="kpi-label">Total Entregas em Rota</div><div class="kpi-value" id="dd-entrega-rota">0</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div class="kpi-content"><div class="kpi-label">% sobre Resolvidas</div><div class="kpi-value" id="dd-entrega-rota-pct">0%</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div class="kpi-content"><div class="kpi-label">Entrega em Rota (30d)</div><div class="kpi-value" id="dd-entrega-rota-mes">0</div></div></div>
+  </div>
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card"><div class="card-header"><div class="card-title">Evolução Mensal</div></div><div class="card-body"><div class="chart-container" style="height:200px"><canvas id="dd-chart-evol"></canvas></div></div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Por Motivo / Tipo</div></div><div class="card-body"><div class="chart-container" style="height:200px"><canvas id="dd-chart-motivos"></canvas></div></div></div>
+  </div>
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card"><div class="card-header"><div class="card-title">Status da Resolução</div></div><div class="card-body"><div class="chart-container" style="height:200px"><canvas id="dd-chart-status"></canvas></div></div></div>
+    <div class="card"><div class="card-header"><div class="card-title">🚛 Entrega em Rota — Evolução</div></div><div class="card-body"><div class="chart-container" style="height:200px"><canvas id="dd-chart-rota"></canvas></div></div></div>
+  </div>
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card"><div class="card-header"><div class="card-title">🏆 Responsáveis</div></div><div class="card-body" id="dd-rank-resp" style="max-height:210px;overflow-y:auto"></div></div>
+    <div class="card"><div class="card-header"><div class="card-title">🏆 Clientes</div></div><div class="card-body" id="dd-rank-clientes" style="max-height:210px;overflow-y:auto"></div></div>
+  </div>
+  <div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">🏆 Motoristas</div></div><div class="card-body" id="dd-rank-motoristas" style="max-height:210px;overflow-y:auto"></div></div>
+  <div class="card"><div class="card-header"><div class="card-title">Registros Recentes</div></div>
+    <div class="table-wrapper"><table class="table"><thead><tr><th>Código</th><th>Tipo</th><th>Status</th><th>Cliente</th><th>Resolução</th><th>Data</th></tr></thead><tbody id="dd-recentes"></tbody></table></div>
+  </div>
+</div>
+
+<!-- PAGE: DASH-DEVOLUCOES (alias) -->
+<div id="page-dash-devolucoes" class="page"></div>
+
+<!-- PAGE: DASH-REENTREGAS -->
+<div id="page-dash-reentregas" class="page">
+  <div class="page-header"><div><h1 class="page-title">Dashboard — Reentregas</h1><p class="page-subtitle">Indicadores exclusivos de reentregas</p></div></div>
+  <div id="dr-filters-area"></div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">
+    <div class="kpi-card"><div class="kpi-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div><div class="kpi-content"><div class="kpi-label">Total</div><div class="kpi-value" id="dr-total">0</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div class="kpi-content"><div class="kpi-label">Agendadas</div><div class="kpi-value" id="dr-agendadas">0</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="kpi-content"><div class="kpi-label">Pendentes</div><div class="kpi-value" id="dr-pendentes">0</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="20 6 9 17 4 12"/></svg></div><div class="kpi-content"><div class="kpi-label">Concluídas</div><div class="kpi-value" id="dr-concluidas">0</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div class="kpi-content"><div class="kpi-label">Devoluções Evitadas</div><div class="kpi-value" id="dr-evitadas">0</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="kpi-content"><div class="kpi-label">Mot. Sec. Pendente</div><div class="kpi-value" id="dr-sem-mot2">0</div></div></div>
+  </div>
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card"><div class="card-header"><div class="card-title">Evolução</div></div><div class="card-body"><div class="chart-container" style="height:200px"><canvas id="dr-chart-evol"></canvas></div></div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Por Motivo</div></div><div class="card-body"><div class="chart-container" style="height:200px"><canvas id="dr-chart-motivos"></canvas></div></div></div>
+  </div>
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card"><div class="card-header"><div class="card-title">Por Status</div></div><div class="card-body"><div class="chart-container" style="height:200px"><canvas id="dr-chart-status"></canvas></div></div></div>
+    <div class="card"><div class="card-header"><div class="card-title">🏆 Clientes</div></div><div class="card-body" id="dr-rank-clientes" style="max-height:210px;overflow-y:auto"></div></div>
+  </div>
+  <div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">🏆 Motoristas Principais</div></div><div class="card-body" id="dr-rank-motoristas" style="max-height:210px;overflow-y:auto"></div></div>
+  <div class="card"><div class="card-header"><div class="card-title">Registros Recentes</div></div>
+    <div class="table-wrapper"><table class="table"><thead><tr><th>Código</th><th>Motivo</th><th>Status</th><th>Cliente</th><th>Mot. Sec.</th><th>Data</th></tr></thead><tbody id="dr-recentes"></tbody></table></div>
+  </div>
+</div>
+
+<!-- PAGE: DASH-SF -->
+<div id="page-dash-sf" class="page">
+  <div class="page-header"><div><h1 class="page-title">Dashboard — Sobras / Faltas</h1><p class="page-subtitle">Erros de conferência</p></div></div>
+  <div id="dsf-filters-area"></div>
+  <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+    <div class="kpi-card"><div class="kpi-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div class="kpi-content"><div class="kpi-label">Total</div><div class="kpi-value" id="dsf-total">0</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="20 6 9 17 4 12"/></svg></div><div class="kpi-content"><div class="kpi-label">Sobras</div><div class="kpi-value" id="dsf-sobras">0</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div><div class="kpi-content"><div class="kpi-label">Faltas</div><div class="kpi-value" id="dsf-faltas">0</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div class="kpi-content"><div class="kpi-label">Taxa Resolução</div><div class="kpi-value" id="dsf-taxa">0%</div></div></div>
+  </div>
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card"><div class="card-header"><div class="card-title">Evolução Mensal</div></div><div class="card-body"><div class="chart-container" style="height:200px"><canvas id="dsf-chart-evol"></canvas></div></div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Sobras vs Faltas</div></div><div class="card-body"><div class="chart-container" style="height:200px"><canvas id="dsf-chart-tipo"></canvas></div></div></div>
+  </div>
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card"><div class="card-header"><div class="card-title">🏆 Conferentes</div></div><div class="card-body" id="dsf-rank-conf" style="max-height:220px;overflow-y:auto"></div></div>
+    <div class="card"><div class="card-header"><div class="card-title">🏆 Clientes</div></div><div class="card-body" id="dsf-rank-clientes" style="max-height:220px;overflow-y:auto"></div></div>
+  </div>
+  <div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">🏆 Carregamentos</div></div><div class="card-body" id="dsf-rank-carreg" style="max-height:180px;overflow-y:auto"></div></div>
+  <div class="card"><div class="card-header"><div class="card-title">Registros Recentes</div></div>
+    <div class="table-wrapper"><table class="table"><thead><tr><th>Código</th><th>Tipo</th><th>Cliente</th><th>Produto</th><th>Conferente</th><th>Data</th></tr></thead><tbody id="dsf-recentes"></tbody></table></div>
+  </div>
+</div>
+
+<!-- PAGE: SOBRAS-FALTAS -->
+<div id="page-sobras-faltas" class="page">
+  <div class="page-header">
+    <div><h1 class="page-title">Sobras / Faltas</h1><p class="page-subtitle">Controle de erros de conferência</p></div>
+    <div class="page-actions">
+      <span id="sf-count" style="font-size:12px;color:var(--text-secondary);align-self:center"></span>
+      <button class="btn btn-primary" onclick="SobrasFaltasPage.nova()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Novo Registro
+      </button>
+    </div>
+  </div>
+  <div class="filters" id="sf-filters"></div>
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="table">
+        <thead><tr><th>Código</th><th>Tipo</th><th>Data</th><th>Cliente</th><th>Produto</th><th>Qtd</th><th>Status</th><th>Conferente</th><th>Ações</th></tr></thead>
+        <tbody id="sf-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="sf-pagination" style="margin-top:12px"></div>
+</div>
+
+<!-- PAGE: RANKINGS -->
+<div id="page-rankings" class="page">
+  <div class="page-header"><div><h1 class="page-title">Rankings</h1><p class="page-subtitle">Classificação por volume e performance</p></div></div>
+  <div class="filters" id="rank-filters" style="margin-bottom:16px"></div>
+  <div class="grid-2">
+    <div class="card"><div class="card-header"><div class="card-title">🏆 Top Clientes</div><span style="font-size:11px;color:var(--text-muted)">Por ocorrências</span></div><div class="card-body" id="rank-clientes"></div></div>
+    <div class="card"><div class="card-header"><div class="card-title">🚛 Top Motoristas</div><span style="font-size:11px;color:var(--text-muted)">Por ocorrências</span></div><div class="card-body" id="rank-motoristas"></div></div>
+    <div class="card"><div class="card-header"><div class="card-title">📋 Top Conferentes</div><span style="font-size:11px;color:var(--text-muted)">Por ocorrências</span></div><div class="card-body" id="rank-conferentes"></div></div>
+    <div class="card"><div class="card-header"><div class="card-title">👤 Top Responsáveis</div><span style="font-size:11px;color:var(--text-muted)">Por ocorrências tratadas</span></div><div class="card-body" id="rank-responsaveis"></div></div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: RELATÓRIOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="page-relatorios" class="page">
+  <div class="page-header"><div><h1 class="page-title">Relatórios</h1><p class="page-subtitle">Gere e exporte relatórios detalhados</p></div></div>
+  <div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Filtros do Relatório</div></div>
+    <div class="card-body">
+      <div class="form-row-3">
+        <div class="form-group"><label>Data Inicial</label><input class="input" type="date" id="rel-data-ini"></div>
+        <div class="form-group"><label>Data Final</label><input class="input" type="date" id="rel-data-fim"></div>
+        <div class="form-group"><label>Cliente</label><select class="select" id="rel-cliente"></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Status</label>
+          <select class="select" id="rel-status"><option value="">Todos</option><option value="ABERTA">Aberta</option><option value="EM_ANDAMENTO">Em Andamento</option><option value="RESOLVIDA">Resolvida</option><option value="CANCELADA">Cancelada</option></select>
+        </div>
+        <div class="form-group"><label>Tipo</label>
+          <select class="select" id="rel-tipo"><option value="">Todos</option></select>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="RelatoriosPage.gerar('pdf')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Exportar PDF</button>
+        <button class="btn btn-secondary" onclick="RelatoriosPage.gerar('excel')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar Excel</button>
+        <button class="btn btn-primary" onclick="RelatoriosPage.gerar('csv')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar CSV</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: ALERTAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="page-alertas" class="page">
+  <div class="page-header">
+    <div><h1 class="page-title">Central de Alertas <span id="alertas-count" style="font-size:14px;font-weight:400;color:var(--text-secondary)"></span></h1><p class="page-subtitle">Acompanhe ocorrências críticas e SLA vencidos</p></div>
+    <button class="btn btn-secondary" onclick="AlertasPage.marcarTodos()">Marcar todos como lido</button>
+  </div>
+  <div id="alertas-list"></div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: NOTIFICAÇÕES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="page-notificacoes" class="page">
+  <div class="page-header">
+    <div><h1 class="page-title">Central de Notificações</h1><p class="page-subtitle" id="notif-full-count">—</p></div>
+    <button class="btn btn-secondary" onclick="NotificacoesPageFull.marcarTodas()">✓ Marcar todas como lidas</button>
+  </div>
+  <div id="notif-full-filters" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px"></div>
+  <div class="card" style="padding:0">
+    <div id="notif-full-content" style="padding:8px 0"></div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: METAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="page-metas" class="page">
+  <div class="page-header"><div><h1 class="page-title">Metas e Indicadores</h1><p class="page-subtitle">Acompanhe o progresso das metas operacionais</p></div></div>
+  <div id="metas-list"></div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: AUDITORIA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="page-auditoria" class="page">
+  <div class="page-header"><div><h1 class="page-title">Log de Auditoria</h1><p class="page-subtitle">Registro completo de ações realizadas no sistema</p></div></div>
+  <div id="audit-arquivados-info"></div>
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="table"><thead><tr><th>Ação</th><th>Usuário</th><th>Entidade</th><th>IP</th><th>Data/Hora</th></tr></thead>
+      <tbody id="audit-tbody"></tbody></table>
+    </div>
+  </div>
+  <div id="audit-pagination" style="margin-top:12px"></div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: ARQUIVADOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="page-arquivados" class="page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Arquivados</h1>
+      <p class="page-subtitle" id="arq-count">Registros arquivados (exclusão lógica)</p>
+    </div>
+    <div class="page-actions" style="align-items:center;gap:8px">
+      <span style="font-size:12px;color:var(--text-secondary)">Apenas administradores podem excluir definitivamente</span>
+    </div>
+  </div>
+
+  <!-- Tabs por tipo -->
+  <div id="arq-tabs" style="margin-bottom:16px"></div>
+
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Tipo</th>
+            <th>Cliente</th>
+            <th>Data Registro</th>
+            <th>Arquivado por</th>
+            <th>Data Arquivamento</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="arq-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="arq-pagination" style="margin-top:12px"></div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: CLIENTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="page-clientes" class="page">
+  <div class="page-header">
+    <div><h1 class="page-title">Clientes</h1><p class="page-subtitle" id="cli-count"></p></div>
+    <div class="page-actions">
+      <div class="input-group"><span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="input" id="cli-search" placeholder="Buscar clientes..." style="height:34px;font-size:12.5px;padding-left:32px"></div>
+      <button class="btn btn-primary" onclick="ClientesPage.novo()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo Cliente</button>
+    </div>
+  </div>
+  <div class="card"><div class="table-wrapper"><table class="table"><thead><tr><th>Nome</th><th>CNPJ</th><th>Contato</th><th>Telefone</th><th>Cidade</th><th>Status</th><th>Ações</th></tr></thead><tbody id="cli-tbody"></tbody></table></div></div>
+  <div id="cli-pagination" style="margin-top:12px"></div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: MOTORISTAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="page-motoristas" class="page">
+  <div class="page-header">
+    <div><h1 class="page-title">Motoristas</h1><p class="page-subtitle" id="mot-count"></p></div>
+    <div class="page-actions">
+      <div class="input-group"><span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="input" id="mot-search" placeholder="Buscar motoristas..." style="height:34px;font-size:12.5px;padding-left:32px"></div>
+      <button class="btn btn-primary" onclick="MotoristasPage.novo()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo Motorista</button>
+    </div>
+  </div>
+  <div class="card"><div class="table-wrapper"><table class="table"><thead><tr><th>Nome</th><th>CPF</th><th>Telefone</th><th>Placa</th><th>Veículo</th><th>Status</th><th>Ações</th></tr></thead><tbody id="mot-tbody"></tbody></table></div></div>
+  <div id="mot-pagination" style="margin-top:12px"></div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: CONFERENTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="page-conferentes" class="page">
+  <div class="page-header">
+    <div><h1 class="page-title">Conferentes</h1><p class="page-subtitle" id="conf-count"></p></div>
+    <div class="page-actions">
+      <div class="input-group"><span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="input" id="conf-search" placeholder="Buscar conferentes..." style="height:34px;font-size:12.5px;padding-left:32px"></div>
+      <button class="btn btn-primary" onclick="ConferentesPage.novo()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo Conferente</button>
+    </div>
+  </div>
+  <div class="card"><div class="table-wrapper"><table class="table"><thead><tr><th>Nome</th><th>Matrícula</th><th>Turno</th><th>Status</th><th>Ações</th></tr></thead><tbody id="conf-tbody"></tbody></table></div></div>
+  <div id="conf-pagination" style="margin-top:12px"></div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: USUÁRIOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="page-usuarios" class="page">
+  <div class="page-header">
+    <div><h1 class="page-title">Usuários</h1><p class="page-subtitle" id="usr-count"></p></div>
+    <div class="page-actions">
+      <div class="input-group"><span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input class="input" id="usr-search" placeholder="Buscar usuários..." style="height:34px;font-size:12.5px;padding-left:32px"></div>
+      <button class="btn btn-primary" onclick="UsuariosPage.novo()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Novo Usuário</button>
+    </div>
+  </div>
+  <div class="card"><div class="table-wrapper"><table class="table"><thead><tr><th>Usuário</th><th>Perfil</th><th>Status</th><th>Cadastrado em</th><th>Ações</th></tr></thead><tbody id="usr-tbody"></tbody></table></div></div>
+  <div id="usr-pagination" style="margin-top:12px"></div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     PAGE: CONFIGURAÇÕES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div id="page-configuracoes" class="page">
+  <div class="page-header"><div><h1 class="page-title">Configurações</h1><p class="page-subtitle">Parâmetros gerais do sistema</p></div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card"><div class="card-header"><div class="card-title">Dados da Empresa</div></div>
+    <div class="card-body">
+      <div class="form-group"><label>Nome da Empresa</label><input class="input" id="cfg-empresa"></div>
+      <div class="form-group"><label>CNPJ</label><input class="input" id="cfg-cnpj"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Telefone</label><input class="input" id="cfg-telefone"></div>
+        <div class="form-group"><label>E-mail</label><input class="input" id="cfg-email"></div>
+      </div>
+      <div class="form-group"><label>Endereço</label><input class="input" id="cfg-endereco"></div>
+    </div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Parâmetros Operacionais</div></div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group"><label>SLA (horas)</label><input class="input" id="cfg-sla" type="number"></div>
+        <div class="form-group"><label>Alerta SLA (%)</label><input class="input" id="cfg-sla-alerta" type="number"></div>
+      </div>
+      <div class="form-group"><label>Registros por página</label><input class="input" id="cfg-paginacao" type="number"></div>
+      <div class="form-group"><label>Tema</label>
+        <select class="select" id="cfg-tema"><option value="light">Claro</option><option value="dark">Escuro</option></select>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-top:8px">
+        <input type="checkbox" id="cfg-notif-email" style="width:16px;height:16px">
+        <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;cursor:pointer" for="cfg-notif-email">Notificações por e-mail</label>
+      </div>
+      <div class="form-group" style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" id="cfg-notif-sonoro" style="width:16px;height:16px">
+        <label style="margin:0;text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;cursor:pointer" for="cfg-notif-sonoro">Alertas sonoros</label>
+      </div>
+    </div></div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:16px">
+    <button class="btn btn-primary" onclick="ConfiguracoesPage.salvar()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Configurações</button>
+    <button class="btn btn-danger btn-sm" onclick="ConfiguracoesPage.resetDB()" style="margin-left:auto">Restaurar dados de demonstração</button>
+  </div>
+
+  <!-- Card: Importação de Frota de Motoristas -->
+  <div class="card" style="margin-top:16px">
+    <div class="card-header">
+      <div>
+        <div class="card-title">🚛 Importar Planilha de Frota</div>
+        <div class="card-subtitle">Atualize a lista de motoristas importando um arquivo Excel (.xlsx) ou CSV</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <!-- Status atual da frota -->
+      <div id="frota-info" style="margin-bottom:16px;padding:10px 14px;background:var(--bg-stripe);border:1px solid var(--border);border-radius:var(--radius)">
+        Carregando informações da frota...
+      </div>
+
+      <!-- Upload area -->
+      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:flex-start">
+        <div>
+          <label>Arquivo (.xlsx ou .csv)</label>
+          <input type="file" id="frota-file" accept=".xlsx,.xls,.csv"
+            onchange="ConfiguracoesPage.previewFrota(this)"
+            style="display:block;width:100%;padding:7px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:13px;cursor:pointer">
+          <div id="frota-preview"></div>
+        </div>
+        <div style="padding-top:20px;display:flex;gap:8px;flex-direction:column">
+          <button class="btn btn-primary" onclick="ConfiguracoesPage.importarFrota()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Importar
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="ConfiguracoesPage._mostrarInstrucoes()">Como exportar CSV</button>
+        </div>
+      </div>
+
+      <!-- Formato esperado -->
+      <div style="margin-top:14px;padding:12px;background:var(--bg-stripe);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;color:var(--text-secondary)">
+        <strong style="color:var(--text-primary)">Formato esperado da planilha:</strong><br>
+        Coluna A = Código do motorista &nbsp;|&nbsp; Coluna B = Nome do motorista<br>
+        A primeira linha pode ser cabeçalho (será ignorada automaticamente).<br>
+        Ao importar, a lista entra em vigor imediatamente e fica salva localmente.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: ATENDIMENTOS -->
+<div id="page-atendimentos" class="page">
+  <div class="page-header">
+    <div><h1 class="page-title">Atendimentos</h1><p class="page-subtitle" id="at-count"></p></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="AtendimentosPage.novo()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Novo Atendimento
+      </button>
+    </div>
+  </div>
+  <div id="at-filters" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px"></div>
+  <div class="card">
+    <div class="table-wrapper">
+      <table class="table">
+        <thead><tr><th>Código</th><th>Contato</th><th>Assunto</th><th>Status</th><th>Financeiro</th><th>Valor Total</th><th>Data Pag.</th><th>Responsável</th><th>Ocorrência</th><th>Ações</th></tr></thead>
+        <tbody id="at-tbody"></tbody>
+      </table>
+    </div>
+    <div id="at-pagination" style="padding:12px 20px"></div>
+  </div>
+</div>
+
+<!-- PAGE: CADASTROS -->
+<div id="page-cadastros" class="page">
+  <div class="page-header"><div><h1 class="page-title">Cadastros</h1><p class="page-subtitle">Motoristas e Tipos de Ocorrência</p></div></div>
+  <div class="card" style="margin-bottom:0">
+    <div class="card-body" style="padding-bottom:0">
+      <div id="cad-tabs"></div>
+    </div>
+    <div class="card-body" id="cad-content" style="padding-top:16px"></div>
+  </div>
+</div>
+
+    </main>
+  </div><!-- end main-wrapper -->
+</div><!-- end app -->
+
+<!-- ─────────────────── MODALS ─────────────────────────────── -->
+
+<!-- Modal: Ver Atendimento -->
+<div id="modal-at-ver" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-at-ver-title">Atendimento</span>
+      <button class="modal-close" onclick="Modal.close('modal-at-ver')" style="background:none;border:none;cursor:pointer;display:flex;color:var(--text-secondary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="modal-at-ver-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Modal.close('modal-at-ver')">Fechar</button>
+      <button class="btn btn-primary" id="modal-at-ver-edit-btn">Editar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Novo/Editar Atendimento -->
+<div id="modal-atendimento" class="modal-overlay">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <span class="modal-title" id="at-modal-title">Atendimento</span>
+      <button class="modal-close" onclick="Modal.close('modal-atendimento')" style="background:none;border:none;cursor:pointer;display:flex;color:var(--text-secondary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="at-form-id">
+
+      <!-- Abas do modal -->
+      <div class="tabs" style="margin-bottom:16px">
+        <div class="tab-btn active" id="at-tab-btn-geral" onclick="AtendimentosPage._switchModalTab('geral')">Atendimento</div>
+        <div class="tab-btn" id="at-tab-btn-fin" onclick="AtendimentosPage._switchModalTab('fin')">💰 Financeiro</div>
+      </div>
+
+      <!-- ABA: Atendimento -->
+      <div id="at-tab-panel-geral">
+        <div class="form-row">
+          <div class="form-group"><label>Nome do Contato *</label><input class="input" id="at-contato-nome" placeholder="Nome do cliente ou contato"></div>
+          <div class="form-group"><label>Data</label><input class="input" type="date" id="at-data"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Hora do Contato</label><input class="input" type="time" id="at-hora"></div>
+          <div class="form-group"><label>Responsável</label><select class="select" id="at-responsavel-sel"></select></div>
+        </div>
+        <div class="form-group"><label>Assunto *</label><input class="input" id="at-assunto" placeholder="Motivo do contato..."></div>
+        <div class="form-group"><label>Descrição</label><textarea class="input" id="at-descricao" rows="3" placeholder="Detalhes do atendimento..." style="height:auto;padding:10px 12px"></textarea></div>
+        <div class="form-group" id="at-modal-status-row">
+          <label>Status</label>
+          <select class="select" id="at-status-sel">
+            <option value="NOVO">Novo</option>
+            <option value="EM_ATENDIMENTO">Em Atendimento</option>
+            <option value="AGUARDANDO">Aguardando</option>
+            <option value="FINALIZADO">Finalizado</option>
+            <option value="CONVERTIDO">Convertido</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Anexos <span style="font-size:11px;color:var(--text-muted);font-weight:400">(prints, fotos, PDF, XML — máx. 10MB cada)</span></label>
+          <input type="file" id="at-anexos-input" multiple accept="image/*,.pdf,.xml,.txt" style="display:none" onchange="AtendimentosPage._previewAnexos(this)">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('at-anexos-input').click()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              Selecionar arquivos
+            </button>
+            <span style="font-size:12px;color:var(--text-muted)">Preparado para OCR/IA futura</span>
+          </div>
+          <div id="at-anexos-preview" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+        </div>
+      </div>
+
+      <!-- ABA: Financeiro -->
+      <div id="at-tab-panel-fin" style="display:none">
+        <p id="at-fin-perm-hint" style="font-size:12px;color:var(--danger);margin-bottom:12px"></p>
+        <div class="form-row">
+          <div class="form-group"><label>Valor da Indenização (R$)</label><input class="input" id="at-fin-indenizacao" type="number" min="0" step="0.01" placeholder="0,00" oninput="AtendimentosPage._calcTotal()"></div>
+          <div class="form-group"><label>Valor do Reembolso (R$)</label><input class="input" id="at-fin-reembolso" type="number" min="0" step="0.01" placeholder="0,00" oninput="AtendimentosPage._calcTotal()"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Valor de Crédito (R$)</label><input class="input" id="at-fin-credito" type="number" min="0" step="0.01" placeholder="0,00" oninput="AtendimentosPage._calcTotal()"></div>
+          <div class="form-group">
+            <label>Valor Total (calculado automaticamente)</label>
+            <div style="background:var(--bg-stripe);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:18px;font-weight:700;color:var(--success)" id="at-fin-total-display">R$ 0,00</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Forma de Pagamento</label>
+            <select class="select" id="at-fin-forma">
+              <option value="">Selecionar...</option>
+              <option value="PIX">PIX</option>
+              <option value="TED">TED</option>
+              <option value="DOC">DOC</option>
+              <option value="Depósito">Depósito</option>
+              <option value="Boleto">Boleto</option>
+              <option value="Cartão">Cartão</option>
+              <option value="Dinheiro">Dinheiro</option>
+              <option value="Crédito em Conta">Crédito em Conta</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Status Financeiro</label>
+            <select class="select" id="at-fin-status">
+              <option value="Pendente">Pendente</option>
+              <option value="Em Análise">Em Análise</option>
+              <option value="Aprovado">Aprovado</option>
+              <option value="Aguardando Pagamento">Aguardando Pagamento</option>
+              <option value="Pago">Pago</option>
+              <option value="Cancelado">Cancelado</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Data de Pagamento</label><input class="input" type="date" id="at-fin-data-pag"></div>
+        </div>
+        <div class="form-group"><label>Observações Financeiras</label><textarea class="input" id="at-fin-obs" rows="2" placeholder="Observações sobre o pagamento ou processo financeiro..." style="height:auto;padding:10px 12px"></textarea></div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Modal.close('modal-atendimento')">Cancelar</button>
+      <button class="btn btn-primary" onclick="AtendimentosPage.salvar()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Ver Ocorrência -->
+<div class="modal-overlay" id="modal-ver">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-ver-title">Ocorrência</span>
+      <button class="modal-close" onclick="Modal.close('modal-ver')" style="background:none;border:none;cursor:pointer;display:flex;color:var(--text-secondary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="modal-ver-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Modal.close('modal-ver')">Fechar</button>
+      <button class="btn btn-primary" id="modal-ver-edit-btn">Editar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Ocorrência Form -->
+<div class="modal-overlay" id="modal-ocorrencia">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="oc-modal-title">Nova Devolução</span>
+      <button class="modal-close" onclick="Modal.close('modal-ocorrencia')" style="background:none;border:none;cursor:pointer;display:flex;color:var(--text-secondary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="oc-form-id">
+      <div class="form-row" id="oc-modal-status-row">
+        <div class="form-group"><label>Status</label>
+          <select class="select" id="oc-status-sel"><option value="ABERTA">Aberta</option><option value="EM_ANDAMENTO">Em Andamento</option><option value="AGUARDANDO">Aguardando</option><option value="RESOLVIDA">Resolvida</option><option value="CANCELADA">Cancelada</option></select>
+        </div>
+        <div></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Tipo *</label>
+          <div id="oc-tipo-container"></div>
+          <div class="form-hint">Digite o código ou descrição para filtrar</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Cliente</label>
+          <input class="input" id="oc-cliente-txt" placeholder="Nome do cliente">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Código do Motorista</label>
+          <input class="input" id="oc-motorista-cod" placeholder="Ex: 1025" autocomplete="off" oninput="OcorrenciasPage._atualizarPreviewMotorista('oc-motorista-cod','oc-motorista-preview')">
+          <div id="oc-motorista-preview" style="font-size:12px;margin-top:4px;font-weight:500"></div>
+        </div>
+        <div class="form-group"><label>Responsável</label><select class="select" id="oc-responsavel-sel"></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Nota Fiscal</label><input class="input" id="oc-nf" placeholder="NF-12345"></div>
+        <div class="form-group"><label>Local</label><input class="input" id="oc-local" placeholder="Cidade / Rodovia"></div>
+      </div>
+      <div class="form-group"><label>Valor da Mercadoria</label><input class="input" id="oc-valor" type="number" step="0.01" style="max-width:220px"></div>
+      <div class="form-group"><label>Descrição *</label><textarea class="input" id="oc-desc" rows="3" style="height:auto;padding:10px 12px"></textarea></div>
+      <div class="form-group"><label>Observações</label><textarea class="input" id="oc-obs" rows="2" style="height:auto;padding:10px 12px"></textarea></div>
+      <div class="form-group"><label>Tratativa com <span style="font-size:11px;color:var(--text-muted);font-weight:400">(opcional)</span></label><div id="oc-tratativa-container"></div><div class="form-hint">Com quem o SAC está realizando a tratativa desta ocorrência.</div></div>
+      <div class="form-group"><label>Justificativa <span style="font-size:11px;color:var(--text-muted);font-weight:400">(opcional)</span></label><textarea class="input" id="oc-justificativa" rows="2" placeholder="Justificativa da devolução..." style="height:auto;padding:10px 12px"></textarea><div class="form-hint">Campo livre para justificativa operacional. Disponível em relatórios.</div></div>
+      <div class="form-group" id="oc-resolucao-dev-row" style="display:none;border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+        <label>Resolução da Devolução <span style="font-size:11px;color:var(--brand-600);font-weight:600">(Exclusivo: Joel Marques)</span></label>
+        <select class="select" id="oc-resolucao-dev">
+          <option value="">Pendente / Em tratativa</option>
+          <option value="Em tratativa">Em tratativa</option>
+          <option value="Devolucao realizada">Devolução realizada</option>
+          <option value="Resolvida com reentrega">Resolvida com reentrega</option>
+          <option value="Entrega em Rota">Entrega em Rota</option>
+        </select>
+        <div class="form-hint" id="oc-resolucao-hint">Somente Joel Marques pode alterar este campo.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Modal.close('modal-ocorrencia')">Cancelar</button>
+      <button class="btn btn-primary" onclick="OcorrenciasPage.salvar()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cliente -->
+<div class="modal-overlay" id="modal-cliente">
+  <div class="modal"><div class="modal-header"><span class="modal-title" id="cli-modal-title">Cliente</span><button class="modal-close" onclick="Modal.close('modal-cliente')" style="background:none;border:none;cursor:pointer;display:flex;color:var(--text-secondary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="modal-body"><input type="hidden" id="cli-id">
+    <div class="form-group"><label>Nome *</label><input class="input" id="cli-nome"></div>
+    <div class="form-group"><label>CNPJ</label><input class="input" id="cli-cnpj" placeholder="00.000.000/0000-00"></div>
+    <div class="form-row"><div class="form-group"><label>Contato</label><input class="input" id="cli-contato"></div><div class="form-group"><label>Telefone</label><input class="input" id="cli-telefone"></div></div>
+    <div class="form-row"><div class="form-group"><label>E-mail</label><input class="input" id="cli-email" type="email"></div><div class="form-group"><label>Cidade</label><input class="input" id="cli-cidade"></div></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="Modal.close('modal-cliente')">Cancelar</button><button class="btn btn-primary" onclick="ClientesPage.salvar()">Salvar</button></div>
+  </div>
+</div>
+
+<!-- Modal: Motorista -->
+<div class="modal-overlay" id="modal-motorista">
+  <div class="modal"><div class="modal-header"><span class="modal-title" id="mot-modal-title">Motorista</span><button class="modal-close" onclick="Modal.close('modal-motorista')" style="background:none;border:none;cursor:pointer;display:flex;color:var(--text-secondary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="modal-body"><input type="hidden" id="mot-id">
+    <div class="form-group"><label>Nome *</label><input class="input" id="mot-nome"></div>
+    <div class="form-row"><div class="form-group"><label>CPF</label><input class="input" id="mot-cpf" placeholder="000.000.000-00"></div><div class="form-group"><label>CNH</label><input class="input" id="mot-cnh"></div></div>
+    <div class="form-group"><label>Telefone</label><input class="input" id="mot-telefone"></div>
+    <div class="form-row"><div class="form-group"><label>Placa</label><input class="input" id="mot-placa" placeholder="ABC-0000"></div><div class="form-group"><label>Veículo</label><input class="input" id="mot-veiculo"></div></div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="Modal.close('modal-motorista')">Cancelar</button><button class="btn btn-primary" onclick="MotoristasPage.salvar()">Salvar</button></div>
+  </div>
+</div>
+
+<!-- Modal: Conferente -->
+<div class="modal-overlay" id="modal-conferente">
+  <div class="modal modal-sm"><div class="modal-header"><span class="modal-title" id="conf-modal-title">Conferente</span><button class="modal-close" onclick="Modal.close('modal-conferente')" style="background:none;border:none;cursor:pointer;display:flex;color:var(--text-secondary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="modal-body"><input type="hidden" id="conf-id">
+    <div class="form-group"><label>Nome *</label><input class="input" id="conf-nome"></div>
+    <div class="form-group"><label>Matrícula</label><input class="input" id="conf-matricula"></div>
+    <div class="form-group"><label>Turno</label>
+      <select class="select" id="conf-turno"><option value="Manhã">Manhã</option><option value="Tarde">Tarde</option><option value="Noite">Noite</option></select>
+    </div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="Modal.close('modal-conferente')">Cancelar</button><button class="btn btn-primary" onclick="ConferentesPage.salvar()">Salvar</button></div>
+  </div>
+</div>
+
+<!-- Modal: Usuário -->
+<div class="modal-overlay" id="modal-usuario">
+  <div class="modal modal-sm"><div class="modal-header"><span class="modal-title" id="usr-modal-title">Usuário</span><button class="modal-close" onclick="Modal.close('modal-usuario')" style="background:none;border:none;cursor:pointer;display:flex;color:var(--text-secondary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="modal-body"><input type="hidden" id="usr-id">
+    <div class="form-group"><label>Nome *</label><input class="input" id="usr-nome"></div>
+    <div class="form-group"><label>E-mail *</label><input class="input" id="usr-email" type="email"></div>
+    <div class="form-group" id="usr-senha-row"><label>Senha *</label><input class="input" id="usr-senha" type="password" placeholder="Mínimo 6 caracteres"></div>
+    <div class="form-group"><label>Perfil</label>
+      <select class="select" id="usr-perfil"><option value="OPERADOR">Operador</option><option value="SUPERVISOR">Supervisor</option><option value="ADMINISTRADOR">Administrador</option></select>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-stripe);border-radius:var(--radius);border:1px solid var(--border)">
+      <input type="checkbox" id="usr-pode-resolucao" style="width:16px;height:16px;accent-color:var(--brand-600)">
+      <label for="usr-pode-resolucao" style="margin:0;text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;cursor:pointer">
+        Autorizar alteração de <strong>Resolução da Devolução</strong>
+        <span style="font-size:11px;color:var(--text-muted);display:block;font-weight:400">Concede permissão especial para fechar devoluções</span>
+      </label>
+    </div>
+  </div>
+  <div class="modal-footer"><button class="btn btn-secondary" onclick="Modal.close('modal-usuario')">Cancelar</button><button class="btn btn-primary" onclick="UsuariosPage.salvar()">Salvar</button></div>
+  </div>
+</div>
+
+<!-- Modal: Ver Reentrega -->
+<div class="modal-overlay" id="modal-reet-ver">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-reet-ver-title">Reentrega</span>
+      <button class="modal-close" onclick="Modal.close('modal-reet-ver')" style="background:none;border:none;cursor:pointer;display:flex;color:var(--text-secondary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="modal-reet-ver-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Modal.close('modal-reet-ver')">Fechar</button>
+      <button class="btn btn-primary" id="modal-reet-ver-edit-btn">Editar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Reentrega Form -->
+<div class="modal-overlay" id="modal-reentrega">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="reet-modal-title">Nova Reentrega</span>
+      <button class="modal-close" onclick="Modal.close('modal-reentrega')" style="background:none;border:none;cursor:pointer;display:flex;color:var(--text-secondary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="reet-form-id">
+
+      <!-- Status (só mostra na edição) -->
+      <div class="form-row" id="reet-modal-status-row">
+        <div class="form-group"><label>Status</label>
+          <select class="select" id="reet-status-sel">
+            <option value="ABERTA">Aberta</option>
+            <option value="EM_ANDAMENTO">Em Andamento</option>
+            <option value="RESOLVIDA">Resolvida</option>
+            <option value="CANCELADA">Cancelada</option>
+          </select>
+        </div>
+        <div></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group"><label>Motivo da Reentrega *</label>
+          <select class="select" id="reet-motivo-sel"></select>
+        </div>
+        <div class="form-group"><label>Cliente *</label>
+          <input class="input" id="reet-cliente" placeholder="Nome do cliente">
+        </div>
+      </div>
+
+
+      <div class="form-row">
+        <div class="form-group"><label>Código do Motorista Principal</label>
+          <input class="input" id="reet-mot1-cod" placeholder="Ex: 2278" autocomplete="off" oninput="ReentregasPage._previewMot('reet-mot1-cod','reet-mot1-preview')">
+          <div id="reet-mot1-preview" style="font-size:12px;margin-top:4px;font-weight:500"></div>
+        </div>
+        <div class="form-group"><label>Código do Motorista Secundário</label>
+          <input class="input" id="reet-mot2-cod" placeholder="Ex: 1837" autocomplete="off" oninput="ReentregasPage._previewMot('reet-mot2-cod','reet-mot2-preview')">
+          <div id="reet-mot2-preview" style="font-size:12px;margin-top:4px;font-weight:500"></div>
+          <div class="form-hint">Campo editável após salvar. Gera alerta se vazio.</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group"><label>Responsável pela Tratativa</label>
+          <select class="select" id="reet-responsavel-sel"></select>
+        </div>
+        <div class="form-group"><label>Nota Fiscal</label>
+          <input class="input" id="reet-nf" placeholder="NF-12345">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group"><label>Local</label>
+          <input class="input" id="reet-local" placeholder="Cidade / Endereço">
+        </div>
+        <div class="form-group"><label>Valor da Mercadoria (R$)</label>
+          <input class="input" id="reet-valor" type="number" step="0.01" placeholder="0,00">
+        </div>
+      </div>
+
+      <div class="form-group"><label>Descrição</label>
+        <textarea class="input" id="reet-desc" rows="3" placeholder="Descreva a situação da reentrega..." style="height:auto;padding:10px 12px"></textarea>
+      </div>
+
+      <div class="form-group"><label>Observações</label>
+        <textarea class="input" id="reet-obs" rows="2" placeholder="Informações adicionais..." style="height:auto;padding:10px 12px"></textarea>
+      </div>
+
+      <div class="form-group"><label>Tratativa com <span style="font-size:11px;color:var(--text-muted);font-weight:400">(opcional)</span></label><div id="reet-tratativa-container"></div></div>
+        <select class="select" id="reet-dev-evitada">
+          <option value="nao">Não</option>
+          <option value="sim">Sim — reentrega evitou devolução</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Modal.close('modal-reentrega')">Cancelar</button>
+      <button class="btn btn-primary" onclick="ReentregasPage.salvar()">Salvar Reentrega</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Ver Sobra/Falta -->
+<div class="modal-overlay" id="modal-sf-ver">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-sf-ver-title">Sobra/Falta</span>
+      <button class="modal-close" onclick="Modal.close('modal-sf-ver')" style="background:none;border:none;cursor:pointer;display:flex;color:var(--text-secondary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="modal-sf-ver-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Modal.close('modal-sf-ver')">Fechar</button>
+      <button class="btn btn-primary" id="modal-sf-ver-edit-btn">Editar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Sobra/Falta Form -->
+<div class="modal-overlay" id="modal-sobra-falta">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="sf-modal-title">Novo Registro</span>
+      <button class="modal-close" onclick="Modal.close('modal-sobra-falta')" style="background:none;border:none;cursor:pointer;display:flex;color:var(--text-secondary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="sf-form-id">
+      <div class="form-row" id="sf-modal-status-row">
+        <div class="form-group"><label>Status</label>
+          <select class="select" id="sf-status-sel">
+            <option value="ABERTA">Aberta</option><option value="EM_ANDAMENTO">Em Andamento</option>
+            <option value="RESOLVIDA">Resolvida</option><option value="CANCELADA">Cancelada</option>
+          </select>
+        </div><div></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Tipo *</label>
+          <select class="select" id="sf-tipo">
+            <option value="FALTA">Falta</option>
+            <option value="SOBRA">Sobra</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Data</label>
+          <input class="input" type="date" id="sf-data">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Nº do Carregamento</label>
+          <input class="input" id="sf-num-carr" placeholder="Ex: CAR-0001">
+        </div>
+        <div class="form-group"><label>Nota Fiscal</label>
+          <input class="input" id="sf-nf" placeholder="NF-12345">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Cliente *</label>
+          <input class="input" id="sf-cliente" placeholder="Nome do cliente">
+        </div>
+        <div class="form-group"><label>Código do Motorista</label>
+          <input class="input" id="sf-mot-cod" placeholder="Ex: 2278" autocomplete="off" oninput="SobrasFaltasPage._previewMot()">
+          <div id="sf-mot-preview" style="font-size:12px;margin-top:4px;font-weight:500"></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Conferente</label>
+          <input class="input" id="sf-conferente" placeholder="Nome do conferente">
+        </div>
+        <div class="form-group"><label>Responsável pela Tratativa</label>
+          <select class="select" id="sf-responsavel-sel"></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Produto *</label>
+          <input class="input" id="sf-produto" placeholder="Descrição do produto">
+        </div>
+        <div class="form-group"><label>Quantidade</label>
+          <input class="input" id="sf-qtd" type="number" min="1" placeholder="0">
+        </div>
+      </div>
+      <div class="form-group"><label>Tratativa com <span style="font-size:11px;color:var(--text-muted);font-weight:400">(opcional)</span></label><div id="sf-tratativa-container"></div></div>
+      <div class="form-group"><label>Origem da Divergência <span style="font-size:11px;color:var(--text-muted);font-weight:400">(opcional)</span></label>
+        <select class="select" id="sf-origem-div">
+          <option value="">Selecionar origem...</option>
+          <option value="Motorista">Motorista</option>
+          <option value="Conferente">Conferente</option>
+          <option value="Operacional">Operacional</option>
+          <option value="Cliente">Cliente</option>
+          <option value="Em análise">Em análise</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Observações</label>
+        <textarea class="input" id="sf-obs" rows="2" placeholder="Informações adicionais..." style="height:auto;padding:10px 12px"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Modal.close('modal-sobra-falta')">Cancelar</button>
+      <button class="btn btn-primary" onclick="SobrasFaltasPage.salvar()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Scripts -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- ── CENTRAL DE NOTIFICAÇÕES ──────────────────────────────── -->
+<!-- Overlay de fundo -->
+<div id="notif-overlay" class="modal-overlay" style="z-index:1050" onclick="Notificacoes.closePanel()"></div>
+
+<!-- Painel lateral -->
+<div id="notif-panel" style="
+  position:fixed;top:0;right:-420px;width:420px;max-width:100vw;height:100vh;
+  background:var(--bg-card);border-left:1px solid var(--border);
+  box-shadow:-4px 0 24px rgba(0,0,0,0.12);z-index:1060;
+  display:flex;flex-direction:column;transition:right .25s ease;
+">
+  <!-- Header do painel -->
+  <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0">
+    <div>
+      <div style="font-size:15px;font-weight:700;color:var(--text-primary)">🔔 Notificações</div>
+      <div style="font-size:12px;color:var(--text-muted)" id="notif-panel-count">—</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-ghost btn-sm" onclick="Notificacoes.marcarTodasLidas()" title="Marcar todas como lidas" style="font-size:11px">✓ Todas lidas</button>
+      <button onclick="Notificacoes.closePanel()" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);display:flex;padding:4px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Filtros e busca -->
+  <div style="padding:12px 20px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px;flex-shrink:0">
+    <div class="input-group">
+      <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+      <input class="input" id="notif-busca" placeholder="Buscar notificações..." style="height:32px;font-size:12px" oninput="Notificacoes.aplicarFiltros()">
+    </div>
+    <div style="display:flex;gap:8px">
+      <select class="select" id="notif-filtro-modulo" style="height:32px;font-size:11px;flex:1" onchange="Notificacoes.aplicarFiltros()">
+        <option value="">Todos os módulos</option>
+        <option value="devolucao">📦 Devoluções</option>
+        <option value="reentrega">🚚 Reentregas</option>
+        <option value="atendimento">📋 Atendimentos</option>
+        <option value="sobra_falta">⚠️ Sobras/Faltas</option>
+        <option value="financeiro">💰 Financeiro</option>
+        <option value="responsavel">👤 Responsável</option>
+        <option value="tratativa">🔄 Tratativa</option>
+        <option value="prazo">⏰ Prazo</option>
+      </select>
+      <select class="select" id="notif-filtro-lida" style="height:32px;font-size:11px;flex:1" onchange="Notificacoes.aplicarFiltros()">
+        <option value="">Todas ativas</option>
+        <option value="nao">Não lidas</option>
+        <option value="sim">Lidas</option>
+        <option value="arq">Arquivadas</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Lista de notificações -->
+  <div id="notif-content" style="flex:1;overflow-y:auto;padding:8px 0"></div>
+</div>
+
+<!-- CSS das notificações -->
+<style>
+#notif-panel.open { right: 0 !important; }
+#notif-overlay.open { display: flex !important; background: rgba(0,0,0,0.3); }
+
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
+  cursor: default;
+}
+.notif-item:hover { background: var(--bg-stripe); }
+.notif-nao-lida { background: var(--brand-50, #eff6ff); border-left: 3px solid var(--brand-500, #3b82f6); }
+.notif-nao-lida:hover { background: var(--brand-50, #eff6ff); }
+[data-theme="dark"] .notif-nao-lida { background: rgba(59,130,246,0.1); }
+
+.notif-icone { font-size: 20px; flex-shrink: 0; margin-top: 2px; width: 28px; text-align: center; }
+.notif-corpo { flex: 1; min-width: 0; }
+.notif-titulo { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.4; }
+.notif-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; line-height: 1.3; }
+.notif-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.notif-acoes { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.notif-arquivada { opacity: 0.65; }
+.notif-arquivada:hover { opacity: 1; }
+</style>
+
+
+<!-- Chart.js carregado de forma não-bloqueante, após o app principal -->
+
+  <!-- Scripts em ordem de dependência -->
+  <script src="js/chart.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/notificacoes.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/ocorrencias.js"></script>
+  <script src="js/reentregas.js"></script>
+  <script src="js/sobras.js"></script>
+  <script src="js/atendimentos.js"></script>
+  <script src="js/pages.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
