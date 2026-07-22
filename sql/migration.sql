@@ -199,6 +199,55 @@ CREATE TABLE IF NOT EXISTS motoristas_cadastro (
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- ================================================================
+-- FASE 1 — Alinhamento de schema (JS ↔ Banco)
+-- Adiciona as colunas que os módulos ocorrencias.js, reentregas.js,
+-- sobras.js e atendimentos.js já gravam via DB.insert()/DB.update()
+-- mas que não existiam nas tabelas acima. Todas as instruções usam
+-- ADD COLUMN IF NOT EXISTS — seguras tanto para instalação nova
+-- quanto para reexecução sobre um banco já existente.
+-- ================================================================
+
+-- OCORRENCIAS
+ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS descricao            TEXT DEFAULT '';
+ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS nota_fiscal          TEXT DEFAULT '';
+ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS local_ocorrencia     TEXT DEFAULT '';
+ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS valor_mercadoria     NUMERIC DEFAULT 0;
+ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS observacoes          TEXT DEFAULT '';
+ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS justificativa        TEXT DEFAULT '';
+ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS atendimento_origem_id UUID REFERENCES atendimentos(id);
+
+-- REENTREGAS
+ALTER TABLE reentregas ADD COLUMN IF NOT EXISTS motorista_principal          TEXT;
+ALTER TABLE reentregas ADD COLUMN IF NOT EXISTS motorista_principal_codigo   TEXT;
+ALTER TABLE reentregas ADD COLUMN IF NOT EXISTS motorista_secundario_codigo  TEXT;
+ALTER TABLE reentregas ADD COLUMN IF NOT EXISTS nota_fiscal                  TEXT DEFAULT '';
+ALTER TABLE reentregas ADD COLUMN IF NOT EXISTS local_ocorrencia             TEXT DEFAULT '';
+ALTER TABLE reentregas ADD COLUMN IF NOT EXISTS valor_mercadoria             NUMERIC DEFAULT 0;
+ALTER TABLE reentregas ADD COLUMN IF NOT EXISTS descricao                    TEXT DEFAULT '';
+ALTER TABLE reentregas ADD COLUMN IF NOT EXISTS observacoes                  TEXT DEFAULT '';
+ALTER TABLE reentregas ADD COLUMN IF NOT EXISTS devolucao_evitada            BOOLEAN DEFAULT false;
+
+-- SOBRAS_FALTAS
+ALTER TABLE sobras_faltas ADD COLUMN IF NOT EXISTS data              DATE;
+ALTER TABLE sobras_faltas ADD COLUMN IF NOT EXISTS num_carregamento  TEXT DEFAULT '';
+ALTER TABLE sobras_faltas ADD COLUMN IF NOT EXISTS nota_fiscal       TEXT DEFAULT '';
+ALTER TABLE sobras_faltas ADD COLUMN IF NOT EXISTS motorista         TEXT;
+ALTER TABLE sobras_faltas ADD COLUMN IF NOT EXISTS motorista_codigo  TEXT;
+ALTER TABLE sobras_faltas ADD COLUMN IF NOT EXISTS conferente        TEXT;
+ALTER TABLE sobras_faltas ADD COLUMN IF NOT EXISTS observacoes       TEXT DEFAULT '';
+
+-- ATENDIMENTOS
+ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS data                    DATE;
+ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS hora_recebimento        TEXT;
+ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS descricao               TEXT DEFAULT '';
+ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS observacoes_financeiras TEXT DEFAULT '';
+ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS historico_financeiro    JSONB DEFAULT '[]';
+ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS hora_abertura           TIMESTAMPTZ;
+ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS hora_encerramento       TIMESTAMPTZ;
+ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS hora_primeira_resp      TIMESTAMPTZ;
+ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS ocorrencia_tipo         TEXT;
+
 -- ── ÍNDICES ───────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_ocorrencias_status      ON ocorrencias(status);
 CREATE INDEX IF NOT EXISTS idx_ocorrencias_arquivado   ON ocorrencias(arquivado);

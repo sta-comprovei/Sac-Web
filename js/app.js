@@ -226,41 +226,25 @@ async function handleLogin(e) {
   var errEl = document.getElementById('login-error');
   if(errEl) errEl.textContent = '';
 
-  var USUARIOS = [
-    {id:'a0000000-0000-0000-0000-000000000002',nome:'Ana Costa',    email:'supervisor@logitrack.com',senha:'123456',  perfil:'SUPERVISOR',    ativo:true,podeAlterarResolucao:false},
-    {id:'a0000000-0000-0000-0000-000000000001',nome:'Carlos Mendes',email:'admin@logitrack.com',     senha:'admin123',perfil:'ADMINISTRADOR',ativo:true,podeAlterarResolucao:false},
-    {id:'a0000000-0000-0000-0000-000000000003',nome:'João Oliveira',email:'operador@logitrack.com',  senha:'oper123', perfil:'OPERADOR',     ativo:true,podeAlterarResolucao:false},
-    {id:'a0000000-0000-0000-0000-000000000004',nome:'Maria Santos', email:'maria@logitrack.com',     senha:'maria123',perfil:'OPERADOR',     ativo:true,podeAlterarResolucao:false},
-    {id:'a0000000-0000-0000-0000-000000000005',nome:'Joel Marques', email:'joel@logitrack.com',      senha:'joel123', perfil:'SUPERVISOR',   ativo:true,podeAlterarResolucao:true},
-  ];
+  var usuarios;
+  try {
+    usuarios = await DB.getAll(DB.KEYS.USERS);
+  } catch(e1) {
+    console.error('Erro ao consultar usuarios:', e1);
+    if(errEl) errEl.textContent = 'Não foi possível conectar ao banco de dados. Tente novamente.';
+    return;
+  }
 
-  var user = USUARIOS.find(function(u){ return u.email===email && u.senha===senha; });
+  var user = (usuarios||[]).find(function(u){ return (u.email||'').toLowerCase()===email; });
 
-  if(!user){
+  if(!user || user.ativo===false || user.senhaHash !== sha256Hex(senha)){
     if(errEl) errEl.textContent='E-mail ou senha inválidos.';
     return;
   }
 
-  // Garantir que o usuário existe no banco com o id correto
-  try {
-    var todos = lsRead('usuarios');
-    var existe = Array.isArray(todos) && todos.some(function(u){ return u.id===user.id; });
-    if(!existe){
-      var agora = new Date().toISOString();
-      var registro = Object.assign({}, user, {
-        senhaHash: sha256Hex(user.senha),
-        createdAt: agora, updatedAt: agora,
-      });
-      delete registro.senha;
-      if(!Array.isArray(todos)) todos = [];
-      todos.push(registro);
-      lsWrite('usuarios', todos);
-    }
-  } catch(e2){ console.warn('banco:', e2.message); }
-
   Session.set({
     id:user.id, nome:user.nome, email:user.email, perfil:user.perfil,
-    ativo:true, podeAlterarResolucao:user.podeAlterarResolucao,
+    ativo:user.ativo, podeAlterarResolucao:!!user.podeAlterarResolucao,
     editarFinanceiro: user.perfil!=='OPERADOR',
   });
 

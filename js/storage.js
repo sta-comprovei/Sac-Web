@@ -50,6 +50,9 @@ var _C2S = {
   historicoFinanceiro:'historico_financeiro',
   valorMeta:'valor_meta', valorAtual:'valor_atual',
   entidadeId:'entidade_id', usuarioNome:'usuario_nome',
+  _mot1cod:'motorista_principal_codigo',
+  _mot2cod:'motorista_secundario_codigo',
+  _motCod:'motorista_codigo',
 };
 var _S2C = {};
 Object.keys(_C2S).forEach(function(k){ _S2C[_C2S[k]] = k; });
