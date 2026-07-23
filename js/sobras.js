@@ -226,7 +226,7 @@ var SobrasFaltasPage = {
       numCarregamento:get('sf-num-carr'), notaFiscal:get('sf-nf'),
       cliente:cliente, motorista:motorista, _motCod:motCod,
       conferente:get('sf-conferente'), produto:produto,
-      quantidade:get('sf-qtd'), responsavelId:get('sf-responsavel-sel') || null,
+      quantidade:parseFloat(get('sf-qtd'))||0, responsavelId:get('sf-responsavel-sel') || null,
       observacoes:get('sf-obs'),
       origemDivergencia:get('sf-origem-div')||'',
       tratativaCom:get('sf-tratativa-sel')||'',
