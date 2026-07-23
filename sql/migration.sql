@@ -275,17 +275,33 @@ ALTER TABLE tratativas         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE motoristas_cadastro ENABLE ROW LEVEL SECURITY;
 
 -- Políticas permissivas (anon key tem acesso total — auth é feita na app)
+-- DROP POLICY IF EXISTS antes de cada CREATE POLICY: Postgres não
+-- suporta "CREATE POLICY IF NOT EXISTS", então esse é o padrão
+-- necessário para que este script possa ser reexecutado sobre um
+-- banco que já tem as policies criadas, sem erro.
+DROP POLICY IF EXISTS "allow_all_usuarios" ON usuarios;
 CREATE POLICY "allow_all_usuarios"           ON usuarios           FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "allow_all_ocorrencias" ON ocorrencias;
 CREATE POLICY "allow_all_ocorrencias"        ON ocorrencias        FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "allow_all_reentregas" ON reentregas;
 CREATE POLICY "allow_all_reentregas"         ON reentregas         FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "allow_all_sobras_faltas" ON sobras_faltas;
 CREATE POLICY "allow_all_sobras_faltas"      ON sobras_faltas      FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "allow_all_atendimentos" ON atendimentos;
 CREATE POLICY "allow_all_atendimentos"       ON atendimentos       FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "allow_all_notificacoes" ON notificacoes;
 CREATE POLICY "allow_all_notificacoes"       ON notificacoes       FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "allow_all_logs" ON logs;
 CREATE POLICY "allow_all_logs"               ON logs               FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "allow_all_metas" ON metas;
 CREATE POLICY "allow_all_metas"              ON metas              FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "allow_all_configuracoes" ON configuracoes;
 CREATE POLICY "allow_all_configuracoes"      ON configuracoes      FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "allow_all_tipos_ocorrencia" ON tipos_ocorrencia;
 CREATE POLICY "allow_all_tipos_ocorrencia"   ON tipos_ocorrencia   FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "allow_all_tratativas" ON tratativas;
 CREATE POLICY "allow_all_tratativas"         ON tratativas         FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "allow_all_motoristas_cadastro" ON motoristas_cadastro;
 CREATE POLICY "allow_all_motoristas_cadastro" ON motoristas_cadastro FOR ALL USING (true) WITH CHECK (true);
 
 -- ── DADOS INICIAIS ────────────────────────────────────────────────
