@@ -1,15 +1,20 @@
 // ================================================================
 // LogiTrack SAC — storage.js  v3
 //
-// Modo Supabase  : preencha SUPABASE_URL e SUPABASE_ANON_KEY
-// Modo Offline   : deixe as duas variáveis em branco
+// Modo Supabase  : preencha SUPABASE_URL e SUPABASE_ANON_KEY em env.js
+// Modo Offline   : deixe as duas variáveis em branco em env.js
 //
 // Quando Supabase estiver configurado, TODO o CRUD usa Supabase.
 // O localStorage é usado APENAS para sessão e chaves escalares.
+//
+// Credenciais vêm de window.__ENV__ (arquivo env.js, carregado no
+// <head>/<body> antes deste arquivo — ver index.html). Não editar
+// credenciais aqui: editar env.js.
 // ================================================================
 
-var SUPABASE_URL      = '';  // 'https://SEU-PROJETO.supabase.co'
-var SUPABASE_ANON_KEY = '';  // 'eyJhbGci...'
+var _ENV = (typeof window !== 'undefined' && window.__ENV__) || {};
+var SUPABASE_URL      = _ENV.SUPABASE_URL || '';
+var SUPABASE_ANON_KEY = _ENV.SUPABASE_ANON_KEY || '';
 
 // ── Modo ──────────────────────────────────────────────────────────
 function _useSB() {

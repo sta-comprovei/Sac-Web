@@ -23,12 +23,18 @@ Plataforma web para gestão de devoluções, reentregas, sobras/faltas e atendim
 - Cole o conteúdo e clique em **Run**
 
 ### 3. Configurar as credenciais no projeto
-Edite o arquivo `js/storage.js` e preencha:
+Edite o arquivo `env.js` (na raiz do projeto) e preencha:
 
 ```js
-var SUPABASE_URL  = 'https://SEU-PROJETO.supabase.co';
-var SUPABASE_ANON_KEY = 'SUA-ANON-KEY';
+window.__ENV__ = {
+  SUPABASE_URL: "https://SEU-PROJETO.supabase.co",
+  SUPABASE_ANON_KEY: "SUA-ANON-KEY"
+};
 ```
+
+> **Não edite `js/storage.js`** para configurar credenciais — ele agora lê tudo de `env.js` (carregado antes de `js/storage.js` em `index.html`). Isso mantém a chave fora da lógica da aplicação.
+>
+> ⚠️ **Atenção**: `env.js` fica versionado no Git com valores em branco por padrão. Se você preencher a anon key aqui para publicar via Netlify Drop (upload manual), **não commite** o arquivo com a chave real em um repositório público.
 
 ---
 
@@ -57,6 +63,7 @@ Ou:
 ```
 logitrack-sac/
 ├── index.html          ← Arquivo principal
+├── env.js              ← Credenciais Supabase (window.__ENV__)
 ├── css/
 │   └── style.css       ← Todos os estilos
 ├── js/
@@ -87,7 +94,7 @@ O sistema usa **localStorage** como banco principal (funciona offline e sem conf
 
 Para usar o **Supabase** (produção com múltiplos usuários):
 1. Execute a migration SQL
-2. Preencha as credenciais em `js/storage.js`
+2. Preencha as credenciais em `env.js`
 3. As leituras/escritas passarão automaticamente para o Supabase
 
 ---
